@@ -25,7 +25,7 @@ then
   exit
 fi
 
-PARAM=$1
+PARAM="$1"
 
 OK="0"
 NOT_OK="1"
@@ -60,8 +60,6 @@ manufacture[accraid]=$(lspci | grep "Adaptec AAC-RAID")
 manufacture[megaraid]=$(lspci | grep "MegaRAID")
 manufacture[mpt]=$(lspci | grep -Ei "raid|SCSI" | grep "MPT" | grep -v "Symbios Logic SAS2004")
 manufacture[mptsas]=$(lspci | grep -Ei "raid|SCSI" | grep "Symbios Logic SAS2004")
-
-
 
 initvars() {
   raid_status=$OK;
@@ -240,7 +238,7 @@ get_var_mptsas() {
   if [[ -f "${ctrl_vars[0]}" ]]; then
     ctrl_vars[1]=$(cat "${ctrl_vars[0]}" | awk '{if ($0 ~ "Volume status") print $4}'| grep -icv "Enabled")
   else
-    ctrl_vars[1]=$(create_tmp "$[ctrl_vars[0]}")
+    ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
   ctrl_vars[3]="/usr/sbin/sas2ircu 0 DISPLAY"
@@ -289,7 +287,7 @@ case "$PARAM" in
     ;;
 
   *)
-    echo "Unknown argument: $1"
+    echo "Unknown argument: $PARAM "
     exit 1
     ;;
 esac
