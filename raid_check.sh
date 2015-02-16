@@ -110,7 +110,7 @@ get_var_hp_smart_array() {
   if [[ -f "${raid_vars[0]}" ]]; then
     raid_vars[1]=$(grep -v "Note:" "${raid_vars[0]}" | grep -iE "fail|error|offline|rebuild|ignoring|degraded|skipping|nok|predictive" | wc -l);
   else
-    raid_vars[1]=$(create_tmp "$raid_vars[0]")
+    raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
   raid_vars[2]="0"
   raid_vars[3]="INFOMGR_BYPASS_NONSA=1 hpacucli ctrl all show config"
