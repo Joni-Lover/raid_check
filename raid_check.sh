@@ -16,6 +16,9 @@
 #       CREATED: 02/05/2015 10:28
 #      REVISION: 002
 #===============================================================================
+
+#set -x # uncomment for debug
+
 set -o nounset   
 cd `dirname $0`
 
@@ -29,7 +32,7 @@ PARAM="$1"
 
 OK="0"
 NOT_OK="1"
-list_binary_to_check=(lspci grep mv awk date ls mktemp cat wc cut sort head)
+list_binary_to_check=(lspci grep mv awk date ls mktemp cat wc cut sort head pgrep)
 OS=$(uname)
 
 checkb() {
@@ -80,13 +83,7 @@ create_tmp() {
     local TIME_DIF="$TIME_NOW - $TIME_FILE"
     echo  $TIME_DIF | bc
 
-    (
-        {
-      local TMPFILE=$(mktemp ${STATUS_FILE}.XXXXX)
-      eval $COMMAND_ST > $TMPFILE
-      mv -f $TMPFILE $STATUS_FILE
-        } > /dev/null 2>&1
-    ) &
+    ( { [[ ! $(pgrep -fx "$COMMAND_ST") ]] && local TMPFILE=$(mktemp ${STATUS_FILE}.XXXXX); eval $COMMAND_ST > $TMPFILE; mv -f $TMPFILE $STATUS_FILE;} > /dev/null 2>&1 &);
 
   else
     touch $STATUS_FILE
@@ -117,7 +114,7 @@ get_var_hp_smart_array() {
 
   ctrl_vars[0]="/tmp/hpctrl.tmp"
   if [[ -f "${ctrl_vars[0]}" ]]; then
-    ctrl_vars[1]=$(grep -vE ": OK$|Slot|^\s*$|Cache Status: Not Configured" "${ctrl_vars[0]}" | wc -l);
+    ctrl_vars[1]=$(grep "Controller Status:" "${ctrl_vars[0]}" | grep -iv "ok" |wc -l);
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
@@ -138,14 +135,14 @@ get_var_mdraid() {
   raid_vars[2]="0"
   raid_vars[3]="for i in \"$(cat /proc/mdstat | grep md |  awk '{print $1}')\";do mdadm --detail /dev/$i ;done"
 
-  ctrl_vars[0]="/tmp/mdctrl.tmp"
+  ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
     ctrl_vars[1]="0"
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]="${raid_vars[3]}"
+  ctrl_vars[3]=""
   eval echo \${${types}_vars[@]}
 }
 get_var_accraid() {
@@ -162,14 +159,14 @@ get_var_accraid() {
   raid_vars[2]="0"
   raid_vars[3]="/usr/StorMan/arcconf getconfig 1"
 
-  ctrl_vars[0]="/tmp/aacctrl.tmp"
+  ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
     ctrl_vars[1]=$(grep "Controller Status" "${ctrl_vars[0]}" | cut -d : -f 2| grep -civ "Optimal")
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]="${raid_vars[3]}"
+  ctrl_vars[3]=""
   eval echo \${${types}_vars[@]}
 }
 get_var_megaraid() {
@@ -210,14 +207,14 @@ get_var_mpt() {
   raid_vars[2]="0"
   raid_vars[3]="/usr/sbin/mpt-status -ns"
 
-  ctrl_vars[0]="/tmp/mptctrl.tmp"
+  ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
     ctrl_vars[1]=$(grep -i "scsi_id" "${ctrl_vars[0]}" | grep -cv "100%")
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]="${raid_vars[3]}"
+  ctrl_vars[3]=""
   eval echo \${${types}_vars[@]}
 }
 get_var_mptsas() {
