@@ -25,11 +25,7 @@ cd `dirname $0`
 if [ $# -ne 1 ]
 then
   echo "Usage: $0 RAID_STATUS or CTRL_STATUS or GET_TMP_REPORT"
-  exit 1
-fi
-if [[ ${BASH_VERSINFO[0]} < "4" ]];then
-  echo "Error: upgrade Bash > 4"
-  exit 1
+  exit
 fi
 
 PARAM="$1"
@@ -60,13 +56,14 @@ case "$OS" in
     ;;
 esac
 
-declare -A manufacture
-manufacture[hp_smart_array]=$(lspci | grep "Smart Array")
-manufacture[mdraid]=$(grep ^md /proc/mdstat)
-manufacture[accraid]=$(lspci | grep "Adaptec AAC-RAID")
-manufacture[megaraid]=$(lspci | grep "MegaRAID")
-manufacture[mpt]=$(lspci | grep -Ei "raid|SCSI" | grep "MPT" | grep -v "Symbios Logic SAS2004")
-manufacture[mptsas]=$(lspci | grep -Ei "raid|SCSI" | grep "Symbios Logic SAS2004")
+
+hp_smart_array=$(lspci | grep "Smart Array")
+mdraid=$(grep ^md /proc/mdstat)
+accraid=$(lspci | grep "Adaptec AAC-RAID")
+megaraid=$(lspci | grep "MegaRAID")
+mpt=$(lspci | grep -Ei "raid|SCSI" | grep "MPT" | grep -v "Symbios Loggic SAS2004")
+mptsas=$(lspci | grep -Ei "raid|SCSI" | grep "Symbios Logic SAS2004")
+manufacture=(hp_smart_array mdraid accraid megaraid mpt mptsas)
 
 initvars() {
   raid_status=$OK;
@@ -96,16 +93,16 @@ create_tmp() {
 }
 check_manufacture() {
   local -a list_controllers=()
-  for controller in "${!manufacture[@]}"; do
-    [[ "${manufacture[$controller]}" ]] && list_controllers+=($controller)
+  for controller in "${manufacture[@]}"; do
+    [[ $(eval echo \${$controller}) ]] && list_controllers+=($controller)
   done
   echo ${list_controllers[@]}
 }
 
 get_var_hp_smart_array() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "hpacucli"
   raid_vars[0]="/tmp/hpraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -128,8 +125,9 @@ get_var_hp_smart_array() {
 }
 get_var_mdraid() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
+  tmp_t=($(cat /proc/mdstat | grep md |  awk '{print $1}'))
   raid_vars[0]="/tmp/mdraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
     raid_vars[1]=$(cat "${raid_vars[0]}" | grep -iE "degraded" | wc -l)
@@ -137,7 +135,7 @@ get_var_mdraid() {
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
   raid_vars[2]="0"
-  raid_vars[3]="for i in \"$(cat /proc/mdstat | grep md |  awk '{print $1}')\";do mdadm --detail /dev/$i ;done"
+  raid_vars[3]="for i in '${tmp_t[@]}'; do mdadm --detail /dev/$i ; done"
 
   ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
@@ -151,8 +149,8 @@ get_var_mdraid() {
 }
 get_var_accraid() {
   local types=$1
-  local raid_vars=()
-  local ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/usr/StorMan/arcconf"
   raid_vars[0]="/tmp/aacraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -175,8 +173,8 @@ get_var_accraid() {
 }
 get_var_megaraid() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/opt/MegaRAID/MegaCli/MegaCli64"
   raid_vars[0]="/tmp/megaraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -199,8 +197,8 @@ get_var_megaraid() {
 }
 get_var_mpt() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/usr/sbin/mpt-status"
   raid_vars[0]="/tmp/mptraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -223,8 +221,8 @@ get_var_mpt() {
 }
 get_var_mptsas() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/usr/sbin/sas2ircu"
   raid_vars[0]="/tmp/mptsasraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -246,9 +244,9 @@ get_var_mptsas() {
   eval echo \${${types}_vars[@]}
 }
 tmp() {
-  local ST=(raid ctrl)
+  local -a ST=(raid ctrl)
   local -a listctrl=($(check_manufacture))
-  local vars_to_check=()
+  local -a vars_to_check=()
   local -a timetpm=()
   for n in "${ST[@]}";do
     for manuf in "${listctrl[@]}";do
@@ -263,7 +261,7 @@ get_status() {
   local ST=$1
   local STS="0"
   local -a listctrl=($(check_manufacture))
-  local vars_to_check=()
+  local -a vars_to_check=()
   for manf in "${listctrl[@]}";do
     vars_to_check=($(get_var_${manf} "$ST"))
     STS=$(( $STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}") ))
