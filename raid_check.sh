@@ -104,8 +104,8 @@ check_manufacture() {
 
 get_var_hp_smart_array() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "hpacucli"
   raid_vars[0]="/tmp/hpraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -128,8 +128,8 @@ get_var_hp_smart_array() {
 }
 get_var_mdraid() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   raid_vars[0]="/tmp/mdraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
     raid_vars[1]=$(cat "${raid_vars[0]}" | grep -iE "degraded" | wc -l)
@@ -175,8 +175,8 @@ get_var_accraid() {
 }
 get_var_megaraid() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/opt/MegaRAID/MegaCli/MegaCli64"
   raid_vars[0]="/tmp/megaraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -199,8 +199,8 @@ get_var_megaraid() {
 }
 get_var_mpt() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/usr/sbin/mpt-status"
   raid_vars[0]="/tmp/mptraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -223,8 +223,8 @@ get_var_mpt() {
 }
 get_var_mptsas() {
   local types=$1
-  local -A raid_vars=()
-  local -A ctrl_vars=()
+  local -a raid_vars=()
+  local -a ctrl_vars=()
   checkb "/usr/sbin/sas2ircu"
   raid_vars[0]="/tmp/mptsasraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
@@ -248,7 +248,7 @@ get_var_mptsas() {
 tmp() {
   local ST=(raid ctrl)
   local -a listctrl=($(check_manufacture))
-  local vars_to_check=()
+  local -a vars_to_check=()
   local -a timetpm=()
   for n in "${ST[@]}";do
     for manuf in "${listctrl[@]}";do
@@ -263,7 +263,7 @@ get_status() {
   local ST=$1
   local STS="0"
   local -a listctrl=($(check_manufacture))
-  local vars_to_check=()
+  local -a vars_to_check=()
   for manf in "${listctrl[@]}";do
     vars_to_check=($(get_var_${manf} "$ST"))
     STS=$(( $STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}") ))
