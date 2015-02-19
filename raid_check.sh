@@ -146,7 +146,7 @@ get_var_mdraid() {
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]=""
+  ctrl_vars[3]="${raid_vars[3]}"
   eval echo \${${types}_vars[@]}
 }
 get_var_accraid() {
@@ -170,7 +170,7 @@ get_var_accraid() {
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]=""
+  ctrl_vars[3]="${raid_vars[3]}"
   eval echo \${${types}_vars[@]}
 }
 get_var_megaraid() {
@@ -218,7 +218,7 @@ get_var_mpt() {
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
   ctrl_vars[2]="0"
-  ctrl_vars[3]=""
+  ctrl_vars[3]="${raid_vars[3]}"
   eval echo \${${types}_vars[@]}
 }
 get_var_mptsas() {
