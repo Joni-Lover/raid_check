@@ -137,7 +137,7 @@ get_var_mdraid() {
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
   raid_vars[2]="0"
-  raid_vars[3]="for i in \"$(cat /proc/mdstat | grep md |  awk '{print $1}')\";do mdadm --detail /dev/$i ;done"
+  raid_vars[3]="mdadm --detail $(ls /dev/md* | grep md| grep -v :)"
 
   ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
