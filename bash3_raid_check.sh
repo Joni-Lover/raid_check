@@ -19,7 +19,7 @@
 
 #set -x # uncomment for debug
 
-set -o nounset   
+set -o nounset
 cd `dirname $0`
 
 if [ $# -ne 1 ]
@@ -37,7 +37,7 @@ OS=$(uname)
 
 checkb() {
   local bin=$1
-  [[ -f $(which ${bin}) ]] >/dev/null 2>&1 || { echo $NOT_OK; exit $NOT_OK ;};
+  [[ -f $(which ${bin}) ]] >/dev/null 2>&1 || { echo "Please install ${bin}"; exit $NOT_OK ;};
 }
 
 case "$OS" in
@@ -55,7 +55,6 @@ case "$OS" in
     done
     ;;
 esac
-
 
 hp_smart_array=$(lspci | grep "Smart Array")
 mdraid=$(grep ^md /proc/mdstat)
@@ -94,7 +93,7 @@ create_tmp() {
 check_manufacture() {
   local -a list_controllers=()
   for controller in "${manufacture[@]}"; do
-    [[ $(eval echo \${$controller}) ]] && list_controllers+=($controller)
+    [[ -n $(eval echo \${$controller}) ]] && list_controllers+=($controller)
   done
   echo ${list_controllers[@]}
 }
