@@ -14,7 +14,7 @@
 #        AUTHOR: Ivan Polonevich (ivan.polonevich@gmail.com),
 #  ORGANIZATION: CTCO
 #       CREATED: 02/05/2015 10:28
-#      REVISION: 002
+#      REVISION: 003
 #===============================================================================
 
 #set -x # uncomment for debug
@@ -279,8 +279,9 @@ tmp() {
                 "${vars_to_check[@]:3:${count_el_array}}"))
     done
   done
-  for timein in "${!timetmp[@]}";do echo "${timetmp[$timein]}"; done  | \
-   sort -nr | head -1
+  for timein in "${!timetmp[@]}";do
+    echo "${timetmp[$timein]}";
+  done | sort -nr | head -1
 }
 get_status() {
   local ST=$1
@@ -290,7 +291,7 @@ get_status() {
   local -a vars_to_check=()
   for manf in "${listctrl[@]}";do
     vars_to_check=($(get_var_${manf} "$ST"))
-    STS=$(( $STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}")))
+    STS=$(($STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}")))
   done
   echo $STS
 }
