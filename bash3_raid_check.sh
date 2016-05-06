@@ -20,6 +20,8 @@
 #set -x # uncomment for debug
 
 set -o nounset
+shopt -s expand_aliases
+trap "exit 1" TERM
 cd `dirname $0`
 
 if [ $# -ne 1 ]
@@ -28,16 +30,18 @@ then
   exit
 fi
 
+pidscr=$$
 PARAM="$1"
 
 OK="0"
 NOT_OK="1"
-list_binary_to_check=(lspci grep mv awk date ls mktemp cat wc cut sort head pgrep)
+lst_bin_to_check=(lspci grep mv awk date ls mktemp cat wc cut sort head pgrep)
 OS=$(uname)
 
 checkb() {
   local bin=$1
-  [[ -f $(which ${bin}) ]] >/dev/null 2>&1 || { echo "Please install ${bin}"; exit $NOT_OK ;};
+  [[ -f $(which ${bin}) ]] >/dev/null 2>&1 || \
+    { echo "Please install ${bin}"; exit $NOT_OK ;};
 }
 
 case "$OS" in
@@ -48,8 +52,11 @@ case "$OS" in
     alias lspci='sudo scanpci'
     export PATH=$PATH:/opt/hp/sbin/
     ;;
+  Darwin )
+    alias lspci='ioreg'
+    ;;
   Linux )
-    for inp in "${list_binary_to_check[@]}";do
+    for inp in "${lst_bin_to_check[@]}";do
       checkb "$inp";
       alias $inp=$(type -p ${inp})
     done
@@ -57,10 +64,11 @@ case "$OS" in
 esac
 
 hp_smart_array=$(lspci | grep "Smart Array")
-mdraid=$(grep ^md /proc/mdstat)
+[[ -f /proc/mdstat ]] && mdraid=$( grep ^md /proc/mdstat) || mdraid=""
 accraid=$(lspci | grep "Adaptec AAC-RAID")
 megaraid=$(lspci | grep "MegaRAID")
-mpt=$(lspci | grep -Ei "raid|SCSI" | grep "MPT" | grep -v "Symbios Loggic SAS2004")
+mpt=$(lspci | grep -Ei "raid|SCSI" | grep "MPT" | \
+    grep -v "Symbios Loggic SAS2004")
 mptsas=$(lspci | grep -Ei "raid|SCSI" | grep "Symbios Logic SAS2004")
 manufacture=(hp_smart_array mdraid accraid megaraid mpt mptsas)
 
@@ -78,12 +86,15 @@ create_tmp() {
   local STATUS_FILE=${tmp_vars[0]}
   if [ -f "$STATUS_FILE" ]; then
     local COMMAND_ST=${tmp_vars[@]:1:${#tmp_vars[*]}}
-    local TIME_FILE=$(ls -l --time-style="+%s" "$STATUS_FILE" | awk '{print $6}')
+    local TIME_FILE=$(ls -l --time-style="+%s" "$STATUS_FILE"| awk '{print $6}')
     local TIME_NOW=$(date "+%s")
     local TIME_DIF="$TIME_NOW - $TIME_FILE"
     echo  $TIME_DIF | bc
 
-    ( { [[ ! $(pgrep -fx "$COMMAND_ST") ]] && local TMPFILE=$(mktemp ${STATUS_FILE}.XXXXX); eval $COMMAND_ST > $TMPFILE; mv -f $TMPFILE $STATUS_FILE;} > /dev/null 2>&1 &);
+    ( { [[ ! $(pgrep -fx "$COMMAND_ST") ]] && \
+      local TMPFILE=$(mktemp ${STATUS_FILE}.XXXXX); \
+      eval $COMMAND_ST > $TMPFILE; \
+      mv -f $TMPFILE $STATUS_FILE;} > /dev/null 2>&1 &);
 
   else
     touch $STATUS_FILE
@@ -95,7 +106,8 @@ check_manufacture() {
   for controller in "${manufacture[@]}"; do
     [[ -n $(eval echo \${$controller}) ]] && list_controllers+=($controller)
   done
-  echo ${list_controllers[@]}
+  [[ 0 -eq ${#list_controllers[*]} ]] && \
+    echo "Cann't find any controllers" >&2 || echo ${list_controllers[@]}
 }
 
 get_var_hp_smart_array() {
@@ -105,7 +117,10 @@ get_var_hp_smart_array() {
   checkb "hpacucli"
   raid_vars[0]="/tmp/hpraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
-    raid_vars[1]=$(grep -v "Note:" "${raid_vars[0]}" | grep -iE "fail|error|offline|rebuild|ignoring|degraded|skipping|nok|predictive" | wc -l);
+    raid_vars[1]=$(grep -v "Note:" "${raid_vars[0]}" | \
+      grep -iE \
+      "fail|error|offline|rebuild|ignoring|degraded|skipping|nok|predictive" | \
+      wc -l);
   else
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
@@ -114,7 +129,8 @@ get_var_hp_smart_array() {
 
   ctrl_vars[0]="/tmp/hpctrl.tmp"
   if [[ -f "${ctrl_vars[0]}" ]]; then
-    ctrl_vars[1]=$(grep "Controller Status:" "${ctrl_vars[0]}" | grep -iv "ok" |wc -l);
+    ctrl_vars[1]=$(grep "Controller Status:" "${ctrl_vars[0]}" | \
+    grep -iv "ok" |wc -l);
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
@@ -153,7 +169,8 @@ get_var_accraid() {
   checkb "/usr/StorMan/arcconf"
   raid_vars[0]="/tmp/aacraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
-    raid_vars[1]=$(grep "Status of logical device" "${raid_vars[0]}" | cut -d : -f 2| grep -cvi "Optimal")
+    raid_vars[1]=$(grep "Status of logical device" "${raid_vars[0]}" | \
+    cut -d : -f 2| grep -cvi "Optimal")
   else
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
@@ -162,7 +179,8 @@ get_var_accraid() {
 
   ctrl_vars[0]="${raid_vars[0]}"
   if [[ -f "${ctrl_vars[0]}" ]]; then
-    ctrl_vars[1]=$(grep "Controller Status" "${ctrl_vars[0]}" | cut -d : -f 2| grep -civ "Optimal")
+    ctrl_vars[1]=$(grep "Controller Status" "${ctrl_vars[0]}" | \
+    cut -d : -f 2| grep -civ "Optimal")
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
@@ -177,7 +195,8 @@ get_var_megaraid() {
   checkb "/opt/MegaRAID/MegaCli/MegaCli64"
   raid_vars[0]="/tmp/megaraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
-    raid_vars[1]=$(grep -Ei 'State|Permission' "${raid_vars[0]}" | cut -d : -f2 | cut -d" " -f2| uniq| grep -civ "Optimal")
+    raid_vars[1]=$(grep -Ei 'State|Permission' "${raid_vars[0]}" | \
+    cut -d : -f2 | cut -d" " -f2| uniq| grep -civ "Optimal")
   else
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
@@ -186,7 +205,8 @@ get_var_megaraid() {
 
   ctrl_vars[0]="/tmp/megactrl.tmp"
   if [[ -f "${ctrl_vars[0]}" ]]; then
-    ctrl_vars[1]=$(grep -i "Status" "${ctrl_vars[0]}" | cut -d : -f 2 | grep -Eiv "normal|ok|Not" | cut -d" " -f2 | wc -l)
+    ctrl_vars[1]=$(grep -i "Status" "${ctrl_vars[0]}" | \
+    cut -d : -f 2 | grep -Eiv "normal|ok|Not" | cut -d" " -f2 | wc -l)
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
@@ -201,7 +221,8 @@ get_var_mpt() {
   checkb "/usr/sbin/mpt-status"
   raid_vars[0]="/tmp/mptraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
-    raid_vars[1]=$(grep -i "vol_id" "${raid_vars[0]}" | cut -d" " -f 2 | grep -civ "OPTIMAL")
+    raid_vars[1]=$(grep -i "vol_id" "${raid_vars[0]}" | \
+    cut -d" " -f 2 | grep -civ "OPTIMAL")
   else
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
@@ -225,7 +246,8 @@ get_var_mptsas() {
   checkb "/usr/sbin/sas2ircu"
   raid_vars[0]="/tmp/mptsasraid.tmp"
   if [[ -f "${raid_vars[0]}" ]]; then
-    raid_vars[1]=$(cat "${raid_vars[0]}" | awk '{if ($0 ~ "Volume state") print $4}'| grep -icv "Optimal")
+    raid_vars[1]=$(cat "${raid_vars[0]}" | \
+    awk '{if ($0 ~ "Volume state") print $4}'| grep -icv "Optimal")
   else
     raid_vars[1]=$(create_tmp "${raid_vars[0]}")
   fi
@@ -234,7 +256,8 @@ get_var_mptsas() {
 
   ctrl_vars[0]="/tmp/mptsasctrl.tmp"
   if [[ -f "${ctrl_vars[0]}" ]]; then
-    ctrl_vars[1]=$(cat "${ctrl_vars[0]}" | awk '{if ($0 ~ "Volume status") print $4}'| grep -icv "Enabled")
+    ctrl_vars[1]=$(cat "${ctrl_vars[0]}" | \
+    awk '{if ($0 ~ "Volume status") print $4}'| grep -icv "Enabled")
   else
     ctrl_vars[1]=$(create_tmp "${ctrl_vars[0]}")
   fi
@@ -245,25 +268,29 @@ get_var_mptsas() {
 tmp() {
   local -a ST=(raid ctrl)
   local -a listctrl=($(check_manufacture))
+  [[ 0 -eq ${#listctrl[*]} ]] &&  kill -s TRAP $$; exit 1;
   local -a vars_to_check=()
   local -a timetpm=()
   for n in "${ST[@]}";do
     for manuf in "${listctrl[@]}";do
       vars_to_check=($(get_var_${manuf} "$n"))
       count_el_array=${#vars_to_check[*]}
-      timetmp+=($(create_tmp "${vars_to_check[0]}" "${vars_to_check[@]:3:${count_el_array}}"))
+      timetmp+=($(create_tmp "${vars_to_check[0]}" \
+                "${vars_to_check[@]:3:${count_el_array}}"))
     done
   done
-  for timein in "${!timetmp[@]}";do echo "${timetmp[$timein]}"; done  | sort -nr | head -1
+  for timein in "${!timetmp[@]}";do echo "${timetmp[$timein]}"; done  | \
+   sort -nr | head -1
 }
 get_status() {
   local ST=$1
   local STS="0"
   local -a listctrl=($(check_manufacture))
+  [[ 0 -eq ${#listctrl[*]} ]] && kill -s TRAP $$; exit 1;
   local -a vars_to_check=()
   for manf in "${listctrl[@]}";do
     vars_to_check=($(get_var_${manf} "$ST"))
-    STS=$(( $STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}") ))
+    STS=$(( $STS + $(check_status "${vars_to_check[1]}" "${vars_to_check[2]}")))
   done
   echo $STS
 }
